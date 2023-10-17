@@ -48,7 +48,7 @@ do
         FPS=$(tail -n 3 fps_err.txt | head -n 1 | awk '{print $2}')
         LATENCY=$(tail -n 3 fps_err.txt | head -n 1 | awk '{print $3}')
         echo "${i}, ${m}, ${c}, ${d}, ${LATENCY}, ${FPS}" >> results.csv
-        echo "$i on $c cores on dev $d got ${FPS} fps"
+        echo "$i on $c cores on dev $d got ${FPS} fps, ${LATENCY} ms latency"
       done
 
     done

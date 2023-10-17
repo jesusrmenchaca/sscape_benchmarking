@@ -1,13 +1,27 @@
 #!/bin/bash
 
-if [[ ! -f ~/.ssh/id_rsa ]]
-then
-  ssh-keygen -q -N '' -f ~/.ssh/id_rsa
-fi
+cd ~/jrmencha/builds/
+cd intel-proxy-setup
+sudo apt --reinstall install network-manager
+sudo ./setup.sh
+cd ..
+cd app*
+cd docker
+sudo ./get_docker.sh
+#Log out.
+cd ../../
+sudo mkdir -p /etc/init && touch /etc/init/docker.conf
+cd intel-proxy-setup
+sudo ./setup.sh
 
-echo "Add the key to github / fmdeviot-ip"
-cat ~/.ssh/id_rsa.pub
+cd ../app*
+screen -S scenescape-dev
+export http_proxy=http://10.7.211.16:911
+export https_proxy=http://10.7.211.16:912
 
-echo "Then clone the following repo"
-git clone git@github.com:jesusrmenchaca/sscape_benchmarking.git
+export SUPASS=thisissupass
+export CERTPASS=thisiscert
+./deploy.sh
+
+docker-compose down
 
