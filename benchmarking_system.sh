@@ -44,7 +44,7 @@ do
           MODEL="${m}=${d}"
         fi
         echo "Running $i on $c cores on dev $d"
-        percebro/percebro --debug --preprocess --stats --frames ${FRAMES} -i ${i} -m ${MODEL} --ovcores ${c} 1> perf_res.txt 2>fps_err.txt
+        percebro/percebro --debug --faketime --preprocess --stats --frames ${FRAMES} -i ${i} -m ${MODEL} --ovcores ${c} 1> perf_res.txt 2>fps_err.txt
         FPS=$(tail -n 3 fps_err.txt | head -n 1 | awk '{print $2}')
         LATENCY=$(tail -n 3 fps_err.txt | head -n 1 | awk '{print $3}')
         echo "${i}, ${m}, ${c}, ${d}, ${LATENCY}, ${FPS}" >> results.csv
