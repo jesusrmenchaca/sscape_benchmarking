@@ -7,7 +7,7 @@ ALL_CORES="2 4 8 12 16"
 
 ALL_INPUTS_JPG="tests/perf_tests/input/20.JPG "
 ALL_INPUTS_VGA="sample_data/apriltag-cam1.mp4 "
-ALL_INPUTS_720p="sample_data/qcam1.mp4 sample_data/qcam2.mp4 dataset/720p/simple1/Cam1.mp4 dataset/720p/Views5/Cam1.mp4"
+ALL_INPUTS_720p="sample_data/qcam1.mp4 sample_data/qcam2.mp4 dataset/720p/simple1/Cam1.mp4 dataset/720p/View5/Cam1.mp4"
 ALL_INPUTS_HD="dataset/HD/reviewHD/Cam0.mp4 dataset/HD/reviewHD/Cam1.mp4 dataset/HD/reviewHD/Cam2.mp4"
 
 ALL_INPUTS="${ALL_INPUTS_JPG} ${ALL_INPUTS_VGA} ${ALL_INPUTS_720p} ${ALL_INPUTS_HD}"
