@@ -31,3 +31,20 @@ pushd ${TARGET}
 make -C docker/ install-models MODELS=all
 
 docker/scenescape-start --shell tests/perf_tests/benchmarking_system.sh
+
+#Scene perf test:
+
+tar -xpf ~/jrmencha/dataset/amcrestdb_v14_10-20-2023.tar.bz2
+
+mkdir data
+cd data
+tar -xpf ~/jrmencha/dataset/amcrest_data.tar.bz2
+cd ..
+
+for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14
+do
+
+  tests/perf_tests/tc_sail_1871_scene_performance_full --prefix amcrest --datadir data --inputs ${i} > scene_perf_cam_${i}.txt
+  tail scene_perf_cam_${i}.txt
+
+done

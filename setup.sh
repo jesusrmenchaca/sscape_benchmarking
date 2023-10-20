@@ -14,6 +14,7 @@ sudo mkdir -p /etc/init && touch /etc/init/docker.conf
 cd intel-proxy-setup
 sudo ./setup.sh
 
+sudo apt-get install -y bzip2
 cd ../app*
 screen -S scenescape-dev
 export http_proxy=http://10.7.211.16:911
