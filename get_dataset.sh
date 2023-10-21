@@ -39,12 +39,17 @@ tar -xpf ~/jrmencha/dataset/amcrestdb_v14_10-20-2023.tar.bz2
 mkdir data
 cd data
 tar -xpf ~/jrmencha/dataset/amcrest_data.tar.bz2
+for ((i=1; i<10;i++)); do mv amcrest0${i}.json amcrest${i}.json; done
 cd ..
 
-for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14
+export DBROOT=/workspace
+export SUPASS=admin123
+CAMERA_TEST="1 2 3 4 5 6 7 8 9 10 11 12 13 14"
+for i in $CAMERA_TEST
 do
 
-  tests/perf_tests/tc_sail_1871_scene_performance_full --prefix amcrest --datadir data --inputs ${i} > scene_perf_cam_${i}.txt
-  tail scene_perf_cam_${i}.txt
+  tests/perf_tests/tc_sail_1871_scene_performance_full --prefix amcrest --datadir data --inputs ${i} --rate 10 > scene_perf_cam_${i}_3401.txt
+  tail scene_perf_cam_${i}_3401.txt
+  scp scene_perf_cam_${i}_3401.txt jrmencha@fmdeviot-ip:~/
 
 done
