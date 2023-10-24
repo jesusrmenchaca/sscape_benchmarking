@@ -41,7 +41,8 @@ def get_color_str(color):
     final_str += x
   return final_str
 
-def gen_graph_simple( graph_name, graph_data, base, unit, fname ):
+
+def gen_graph_simple( graph_name, unit, graph_data, fname ):
   global all_colors
   num_columns = len(graph_data)
   colors_str = []
@@ -68,25 +69,8 @@ def gen_graph_simple( graph_name, graph_data, base, unit, fname ):
     name = col
     if col == 'total':
       continue
-    val = graph_data[col]['time']
-    if base is not None:
-      #if base == 'total':
-      #  val_rel = round(100*val / graph_data['total']['time'])
-      #elif base == 'calls':
-      if base == 'calls':
-        val_rel = 1000*val / graph_data['total']['calls']
-        #print('Base is {} : val {}'.format(base, graph_data['total']['calls']))
-        #print('col is {} : val {} -> {}'.format(name, graph_data[col]['time'], val_rel))
-      elif base == 'time':
-        val_rel = 100*val / graph_data['total']['time']
-      else:
-        #print('Base is {} : val {}'.format(base, graph_data[col]))
-        #print('col is {} : val {}'.format(name, graph_data[col]['time']))
-        #print('Base is {} : val {}'.format(base, graph_data[col][base]))
-        val_rel = val / graph_data[col][base]
-      c.add( name, [val_rel] )
-    else:
-      c.add( name, [val] )
+    val = graph_data[col]
+    c.add( name, [val] )
 
   #c.x_labels = [unit]
 
@@ -140,101 +124,102 @@ def gen_graph_full( graph_name, graph_data, base, labels, fname ):
   c.render_to_file(fname)
   return
 
-def process_file(fname, base):
-  tracker_info = {}
+def process_file_csv( fname, results=[] ):
+  lineNum = 0
+  fileHeaders = []
+  media = []
+  fileData = {}
+  runResults = [] 
   with open(fname) as fd:
-    num_calls = 0
-    while True:
+    line = fd.readline()
+    while line is not None and len(line) > 0 and lineNum < 10:
+      if lineNum == 0:
+        tmpFileHeaders = line.split(",")
+        for h in tmpFileHeaders:
+          h = h.rstrip().lstrip()
+          fileHeaders.append(h)
+          fileData[h] = []
+        print(fileHeaders)
+      else:
+        col = 0
+        lineData = line.split(",")
+        if lineNum > 0 and lineNum < 4:
+          print(lineData)
+        runParams = {}
+        runParams['results'] = {}
+        for r in results:
+          runParams['results'][r] = 0
+        for d in lineData:
+          d = d.rstrip().lstrip()
+          if len(d):
+
+            colName = fileHeaders[col]
+            if colName not in results:
+              if col >= len(fileHeaders):
+                print( "Unknown col {} in {} (known {}".format( col, lineData, fileHeaders ) )
+                break
+
+              runParams[colName] = d
+              #print( "Column ", col )
+              #print( colName )
+              
+              if d not in fileData[colName]:
+                fileData[colName].append(d)
+            else:
+              runParams['results'][colName] = d
+
+          #if col == 0 and d not in media:
+          #  media.append(d)
+          #if col == 0 and lineNum == 1:
+          #  print(d)
+          
+          col+=1
+        runResults.append( runParams )
       line = fd.readline()
-      if not line:
-        break
-      line = line.rstrip()
-      if line.startswith('PERF'):
-        #tracker_str = line.split(':').split(' ').split(',')
-        tracker_str = re.split(r':| |,', line)
-        print(tracker_str)
-        if 'Tracker' in line:
-          tracker_type = tracker_str[-1]
+      lineNum += 1
 
-          if tracker_type not in tracker_info:
-            tracker_info[tracker_type] = {}
-            tracker_info[tracker_type]['total'] = {}
-        if 'Calls' in line:
-          fn_name = tracker_str[2]
+  for col in fileHeaders:
+    print( "Known {} : {}".format( col, fileData[col] ) )
+  
+  print( runResults )
 
-          if not fn_name in tracker_info[tracker_type]:
-            tracker_info[tracker_type][fn_name] = {}
-            tracker_info[tracker_type][fn_name]['calls'] = 0
-            tracker_info[tracker_type][fn_name]['time'] = 0
-            tracker_info[tracker_type][fn_name]['per_msg'] = 0
-          tracker_info[tracker_type][fn_name]['calls'] = int(tracker_str[6])
-          tracker_info[tracker_type][fn_name]['time'] = float(tracker_str[10])
-          if fn_name == base:
-            num_calls = tracker_info[tracker_type][fn_name]['calls']
-            tracker_info[tracker_type]['total']['calls'] = num_calls
-            tracker_info[tracker_type]['total']['time'] = tracker_info[tracker_type][fn_name]['time']
-            tracker_info[tracker_type]['total']['per_msg'] = tracker_info[tracker_type][fn_name]['time'] / tracker_info[tracker_type]['total']['calls']
-          if tracker_info[tracker_type][fn_name]['calls'] == 0:
-            tracker_info[tracker_type][fn_name]['calls'] = num_calls
-          if tracker_info[tracker_type][fn_name]['calls'] > 0:
-            tracker_info[tracker_type][fn_name]['per_msg'] = tracker_info[tracker_type][fn_name]['time'] / tracker_info[tracker_type][fn_name]['calls']
-  for p in tracker_info:
-    print('Tracker {}'.format(p))
-    print( tracker_info[p] )
-    for fn in tracker_info[p]:
-      print(tracker_info[p][fn])
-      print('fn {} time {:.2f} / calls {} avg {:.4f}'.format(fn, tracker_info[p][fn]['time'], tracker_info[p][fn]['calls'], tracker_info[p][fn]['per_msg'] ))
-  return tracker_info
+  for m in fileData['MODEL']:
+    graph_data = {}
+
+    for c in fileData['NUM_CORES']:
+      
+      for d in runResults:
+        if d['MODEL'] == m and d['NUM_CORES'] == c:
+          print("Adding d {}".format(d))
+          graph_data[c] = float(d['results']['FPS'])
+
+    fname = 'model_{}.svg'.format(m)
+    gen_graph_simple( 'FPS per CORES - model {}'.format(m), 'fps', graph_data, fname )
+
+
+  for c in fileData['NUM_CORES']:
+    graph_data = {}
+
+    for m in fileData['MODEL']:
+      
+      for d in runResults:
+        if d['MODEL'] == m and d['NUM_CORES'] == c:
+          print("Adding d {}".format(d))
+          graph_data[m] = float(d['results']['FPS'])
+
+    fname = 'by_{}_cores.svg'.format(c)
+    gen_graph_simple( 'FPS per MODEL - CORES {}'.format(c), 'fps', graph_data, fname )
+    #gen_graph_simple( 'FPS per core', 'fps', graph_data, fname )
+  return
+
+
 
 def main():
   args = build_args().parse_args()
+  fill_colors(16)
   perf_info = []
   for inp in args.input:
-    perf_info.append(process_file(inp, 'run'))
-  #for every file
-  #for idx in range(len(perf_info)):
-  #  #for every tracker
-  #  for t in perf_info[idx]:
-  #    perf_info[idx][t]['total'] = {}
-  #    #Count all fn calls
-  #    for fn in perf_info[idx][t]:
-  #      if fn == 'total':
-  #        continue
-  #      #And count all parameters
-  #      for cat in perf_info[idx][t][fn]:
-  #        perf_info[idx][t]['total'][cat] = 0
-  #      break
-
-  #for idx in range(len(perf_info)):
-  #  for t in perf_info[idx]:
-  #    for fn in perf_info[idx][t]:
-  #      for cat in perf_info[idx][t][fn]:
-  #        #if fn == 'total':
-  #        #  continue
-  #        if fn == 'run':
-  #          perf_info[idx][t]['calls'] = perf_info[idx][t][fn]['calls']
-  #        #perf_info[idx][t]['total'][cat] += perf_info[idx][t][fn][cat]
-
-  #print(perf_info)
-  fill_colors(2)
-
-  for idx in range(len(perf_info)):
-    print("File {}".format(idx))
-    for t in perf_info[idx]:
-      print("tracker {}".format(t))
-      gen_graph_simple( 'Camera {} Tracker {}'.format(idx+1, t), perf_info[idx][t], 'calls', 'ms_per_msg', 'time_{}_{}.svg'.format(t,idx+1))
-      gen_graph_simple( 'Camera {} Tracker {} (ms)'.format(idx+1, t), perf_info[idx][t], 'time', 'perc', 'perc_{}_{}.svg'.format(t,idx+1))
-
-  perf_info_trackers = {}
-  for idx in range(len(perf_info)):
-    for t in perf_info[idx]:
-      if not t in perf_info_trackers:
-        perf_info_trackers[t] = []
-      perf_info_trackers[t].append( perf_info[idx][t] )
-  for t in perf_info_trackers:
-    #print(perf_info_trackers)
-    gen_graph_full( 'Tracker {}'.format(t), perf_info_trackers[t], 'calls', 'ms_per_msg', 'full_{}.svg'.format(t))
-    #gen_graph_full( 'Tracker {}'.format(t), perf_info_trackers[t], 'calls', 'ms_per_msg', 'full_{}.svg'.format(t))
+    process_file_csv(inp, ["FPS", "LATENCY"])
   return 0
 
 if __name__ == '__main__':
