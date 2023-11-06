@@ -101,7 +101,7 @@ def tex_describe_host( f, hostData ):
   return
 
 
-def tex_experiment_inference( f, expData, resultColumns ):
+def tex_experiment_inference( f, expData, resultColumns, hostname ):
   desiredColumns = ['DEVICE', 'NUM_CORES', 'INPUT', 'RESULTS']
   print(expData)
   for m in expData['MODEL']:
@@ -133,7 +133,7 @@ def tex_experiment_inference( f, expData, resultColumns ):
         headerSet = True
     tableData['columns'] = headerData
     tableData['header'] = True
-    g_label = tex_insert_graphic( f, expData['charts']['MODEL'][m], 'model', m, 'localhost' )
+    g_label = tex_insert_graphic( f, expData['charts']['MODEL'][m], 'model', m, hostname )
     f.write( "Refer to \\ref{{fig:{}}}\n".format(g_label) )
     tex_insert_table( f, tableData )
     print( "Done with model ", m )
@@ -149,7 +149,7 @@ def tex_generate_header( f, config, date, version ):
   f.write( "\\newcommand{\\sectionbreak}{\\clearpage}\n" )
   f.write( "\\pagestyle{fancy}\n" )
 
-  f.write( "\\lhead{{\includegraphics[width=1cm]{{ {} }} }}\n".format(config['report']['lheader'] ))
+  f.write( "\\lhead{{ {} }}\n".format(config['report']['lheader'] ))
   f.write( "\\rhead{{ {} }}\n".format(config['report']['rheader'] ))
   f.write( "\\cfoot{{ {} - {}}}\n".format(config['report']['footer'], version) )
 
@@ -185,8 +185,9 @@ def tex_host_description( f, hostData ):
   return
 
 def tex_host_report( f, config, hostData, experimentData ):
-  f.write("\\section{{ Execution on {} }}\n".format( hostData['results'][0]['NAME'] ) )
-  tex_insert_paragraph( f, "The following tests were performed on host {}:\n\n".format(hostData['results'][0]['NAME']) )
+  hostname = tex_escape(hostData['results'][0]['NAME'])
+  f.write("\\section{{ Execution on {} }}\n".format( hostname ))
+  tex_insert_paragraph( f, "The following tests were performed on host {}:\n\n".format(hostname))
 
   tableData = {}
   tableData['header'] = False
@@ -199,7 +200,7 @@ def tex_host_report( f, config, hostData, experimentData ):
 
   for exp in experimentData:
     if exp == 'inference':
-      tex_experiment_inference( f, experimentData[exp], config[exp]['results'] )
+      tex_experiment_inference( f, experimentData[exp], config[exp]['results'], hostname )
     else:
       print( 'Unknown exp {}!!!!!'.format(exp) )
 
@@ -232,7 +233,7 @@ def main():
   fill_colors( len( args.host ) )
   with open("report.tex", 'w') as f:
     allHosts = []
-    tex_generate_header(f, config, report_date, args.version)
+    tex_generate_header(f, config, tex_escape(report_date), tex_escape(args.version))
     for inp in args.host:
       hostFile = "{}/desc_{}.csv".format(args.datadir,inp)
       hostData = process_csv_file(hostFile)
@@ -247,6 +248,8 @@ def main():
           
           print("File ",inp, "Output:", fData)
           generate_all_charts( target_dir, fData )
+        else:
+          print('{} does not exist'.format(fname))
     
       tex_host_report(f, config, hostData, experimentData)
       allHosts.append(hostData)

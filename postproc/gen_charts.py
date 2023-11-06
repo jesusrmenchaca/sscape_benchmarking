@@ -129,7 +129,7 @@ def main():
   perf_info = []
   
   target_dir = os.path.abspath(args.outdir)
-  if not os.path.exist(target_dir):
+  if not os.path.exists(target_dir):
     os.mkdir(target_dir)
   elif not os.path.isdir(target_dir):
     print(f"Error, {target_dir} exists and is not a directory")

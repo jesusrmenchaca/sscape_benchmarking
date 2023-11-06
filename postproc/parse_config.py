@@ -6,7 +6,7 @@ import os
 
 default_config = {
   'report' : {
-                'lheader' : 'logo.png',
+                'lheader' : '',
                 'rheader' : 'Intel',
                 'footer' : 'SceneScape',
                 'URL' : 'http://www.intel.com/scenescape'

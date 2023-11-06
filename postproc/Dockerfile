@@ -1,6 +1,9 @@
 # COPYRIGHT
 
 FROM ubuntu:22.04
+ARG USERNAME=user
+ARG UID=1000
+ARG GID=1000
 
 env DEBIAN_FRONTEND=noninteractive
 RUN : \
@@ -16,8 +19,9 @@ RUN : \
     ;
 
 RUN : \
-    ; useradd -m user -G users \
+    ; groupadd -g ${GID} -o ${USERNAME} \
+    ; useradd -m -u ${UID} -g ${GID} ${USERNAME} -G users \
     ;
 
-USER user
+USER ${USERNAME}
 
