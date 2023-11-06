@@ -2,23 +2,25 @@
 
 import pygal
 import re
-from argparse import ArgumentParser
-
-from pygal.style import Style
 import random
+import os
+from argparse import ArgumentParser
+from pygal.style import Style
+from process_csv import process_csv_file
 
 
 def build_args():
   args = ArgumentParser()
   args.add_argument('--input', action='append', required=True)
+  args.add_argument('--outdir', required=True)
   return args
 
-all_colors=[]#('#ff0000', '#00ff00', '#0000ff')
+all_colors=[]
 
-def fill_colors(num_colors):
+def fill_colors(num_variations):
   global all_colors
 
-  perm = (num_colors) #int(all_colors / 3)
+  perm = (num_variations) #int(all_colors / 3)
   delta = int(255. / perm)
   for c1 in range(perm+1):
     for c2 in range(perm+1):
@@ -28,8 +30,7 @@ def fill_colors(num_colors):
           or (c1 == perm and c2 == perm and c3 == perm):
           continue
         all_colors.append(color)
-  random.shuffle(all_colors)
-  #print('{} - {}'.format(len(all_colors),all_colors))
+  #random.shuffle(all_colors)
   return
     
 def get_color_str(color):
@@ -42,11 +43,11 @@ def get_color_str(color):
   return final_str
 
 
-def gen_graph_simple( graph_name, unit, graph_data, fname ):
+def gen_graph_simple( graph_name, unit, graph_data, fname, color_offset=0 ):
   global all_colors
-  num_columns = len(graph_data)
+  num_columns = len(graph_data) + color_offset
   colors_str = []
-  colors = all_colors[ :num_columns ]
+  colors = all_colors[ color_offset:num_columns ]
   #colors = all_colors[ len(all_colors) : len(all_colors) - num_columns : -1 ]
   for c in colors:
     colors_str.append(get_color_str(c))
@@ -55,7 +56,8 @@ def gen_graph_simple( graph_name, unit, graph_data, fname ):
   mystyle = Style(
     colors=colors_str,
     font_family='Helvetica',
-    background='transparent',
+    background='white',
+    plot_background='#E0E0E0',
     label_font_size=14 )
 
   c = pygal.Bar(
@@ -72,144 +74,51 @@ def gen_graph_simple( graph_name, unit, graph_data, fname ):
     val = graph_data[col]
     c.add( name, [val] )
 
-  #c.x_labels = [unit]
-
   c.render_to_file(fname)
   return
 
-def gen_graph_full( graph_name, graph_data, base, labels, fname ):
-  global all_colors
-  num_columns = 0
-  for idx in graph_data:
-    num_columns += 1
-  colors_str = []
-  colors = all_colors[ :num_columns ]
-  for c in colors:
-    colors_str.append(get_color_str(c))
 
-  print(colors_str)
-  mystyle = Style(
-    colors=colors_str,
-    font_family='Helvetica',
-    background='transparent',
-    label_font_size=14 )
-
-  c = pygal.Bar(
-    title=graph_name,
-    style=mystyle,
-    y_title=labels,
-    width=800,
-    x_label_rotation=270 )
-
-  cam_id = 1
-  for idx in graph_data:
-    for col in idx:
-      if col == 'run':
-        name = '{}_{}'.format(col, cam_id)
-        cam_id += 1
-        val = idx[col]['time']
-        if base is not None:
-          if base == 'calls':
-            #val_rel = round(1000*val / idx['run']['time'])
-            #val_rel = round(100*val / idx['total']['time'])
-            val_rel = 1000*val / idx[col][base]
-          else:
-            val_rel = val / idx[col][base]
-          c.add( name, [val_rel] )
-        else:
-          c.add( name, [val] )
-
-  #c.x_labels = labels
-
-  c.render_to_file(fname)
-  return
-
-def process_file_csv( fname, results=[] ):
-  lineNum = 0
-  fileHeaders = []
-  media = []
-  fileData = {}
-  runResults = [] 
-  with open(fname) as fd:
-    line = fd.readline()
-    while line is not None and len(line) > 0 and lineNum < 10:
-      if lineNum == 0:
-        tmpFileHeaders = line.split(",")
-        for h in tmpFileHeaders:
-          h = h.rstrip().lstrip()
-          fileHeaders.append(h)
-          fileData[h] = []
-        print(fileHeaders)
-      else:
-        col = 0
-        lineData = line.split(",")
-        if lineNum > 0 and lineNum < 4:
-          print(lineData)
-        runParams = {}
-        runParams['results'] = {}
-        for r in results:
-          runParams['results'][r] = 0
-        for d in lineData:
-          d = d.rstrip().lstrip()
-          if len(d):
-
-            colName = fileHeaders[col]
-            if colName not in results:
-              if col >= len(fileHeaders):
-                print( "Unknown col {} in {} (known {}".format( col, lineData, fileHeaders ) )
-                break
-
-              runParams[colName] = d
-              #print( "Column ", col )
-              #print( colName )
-              
-              if d not in fileData[colName]:
-                fileData[colName].append(d)
-            else:
-              runParams['results'][colName] = d
-
-          #if col == 0 and d not in media:
-          #  media.append(d)
-          #if col == 0 and lineNum == 1:
-          #  print(d)
-          
-          col+=1
-        runResults.append( runParams )
-      line = fd.readline()
-      lineNum += 1
-
-  for col in fileHeaders:
+def generate_all_charts( outdir, fileData ):
+  for col in fileData['headers']:
     print( "Known {} : {}".format( col, fileData[col] ) )
-  
-  print( runResults )
+
+  fileData['charts'] = {}
+  for entry in ['MODEL', 'NUM_CORES']:
+    fileData['charts'][entry] = {}
 
   for m in fileData['MODEL']:
+    #fileData['MODEL'][m]'charts'] = []
     graph_data = {}
 
     for c in fileData['NUM_CORES']:
       
-      for d in runResults:
+      for d in fileData['results']:
         if d['MODEL'] == m and d['NUM_CORES'] == c:
-          print("Adding d {}".format(d))
-          graph_data[c] = float(d['results']['FPS'])
+          graph_data[c] = float(d['data']['FPS'])
 
-    fname = 'model_{}.svg'.format(m)
+    fname = '{}/model_{}.svg'.format(outdir, m)
     gen_graph_simple( 'FPS per CORES - model {}'.format(m), 'fps', graph_data, fname )
+
+    #fileData['MODEL'][m]['charts' = fname
+    fileData['charts']['MODEL'][m] = fname
 
 
   for c in fileData['NUM_CORES']:
+    #fileData['NUM_CORES'][c]['charts'] = {}
     graph_data = {}
 
     for m in fileData['MODEL']:
       
-      for d in runResults:
+      for d in fileData['results']:
         if d['MODEL'] == m and d['NUM_CORES'] == c:
           print("Adding d {}".format(d))
-          graph_data[m] = float(d['results']['FPS'])
+          graph_data[m] = float(d['data']['FPS'])
 
-    fname = 'by_{}_cores.svg'.format(c)
+    fname = '{}/by_{}_cores.svg'.format(outdir, c)
     gen_graph_simple( 'FPS per MODEL - CORES {}'.format(c), 'fps', graph_data, fname )
-    #gen_graph_simple( 'FPS per core', 'fps', graph_data, fname )
+
+    #fileData['NUM_CORES'][c]['chart'] =  fname
+    fileData['charts']['NUM_CORES'][c] = fname
   return
 
 
@@ -218,8 +127,18 @@ def main():
   args = build_args().parse_args()
   fill_colors(16)
   perf_info = []
+  
+  target_dir = os.path.abspath(args.outdir)
+  if not os.path.exist(target_dir):
+    os.mkdir(target_dir)
+  elif not os.path.isdir(target_dir):
+    print(f"Error, {target_dir} exists and is not a directory")
+    return 1
+  
   for inp in args.input:
-    process_file_csv(inp, ["FPS", "LATENCY"])
+    fData = process_csv_file(inp, ["FPS", "LATENCY"])
+    generate_all_charts( target_dir, fData )
+    
   return 0
 
 if __name__ == '__main__':
