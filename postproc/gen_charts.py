@@ -64,7 +64,8 @@ def gen_graph_simple( graph_name, unit, graph_data, fname, color_offset=0 ):
     title=graph_name,
     style=mystyle,
     y_title=unit,
-    width=400,
+    width=300,
+    height=250,
     x_label_rotation=270 )
 
   for col in graph_data:

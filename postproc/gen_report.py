@@ -92,7 +92,7 @@ def tex_describe_host( f, hostData ):
   tex_insert_paragraph( f, "{} has {} cores, running at {} MHz.\n".format( hostName, 
       hostData['results'][0]['CORES'], 
       hostData['results'][0]['FREQ'] ))
-  if hostData['results'][0]['GPU'] != 0:
+  if int(hostData['results'][0]['GPU']) != 0:
     f.write( "{} has the following GPU: {}\n".format( hostName, hostData['results'][0]['GPU'] ) )
   else:
     f.write( "{} does not have a GPU\n".format(hostName) )
@@ -100,16 +100,14 @@ def tex_describe_host( f, hostData ):
   
   return
 
-
 def tex_experiment_inference( f, expData, resultColumns, hostname ):
-  desiredColumns = ['DEVICE', 'NUM_CORES', 'INPUT', 'RESULTS']
+  desiredColumns = ['DEVICE', 'NUM_CORES', 'INPUT', 'RES', 'RESULTS']
+  desiredColumns = ['DEVICE', 'NUM_CORES', 'RES', 'RESULTS']
   print(expData)
   for m in expData['MODEL']:
     f.write( "\\par\n" )
     f.write( "The following results were measured on model {}\n".format(m) )
     
-    rows = 3
-    columns = 5 #Model xyz: Device streams/Cores Resolution FPS latency
     tableData = {}
     headerData = []
     headerSet = False
@@ -142,6 +140,7 @@ def tex_experiment_inference( f, expData, resultColumns, hostname ):
 def tex_generate_header( f, config, date, version ):
   f.write( "\\documentclass{article}\n" )
   f.write( "\\usepackage{hyperref,graphicx,fancyhdr}\n" )
+  f.write( "\\usepackage[left=2cm,right=2cm]{geometry}\n" )
   # For breaking up cells
   f.write( "\\usepackage{tabularx,array}\n" )
   f.write( "\\usepackage{titlesec}\n" )
