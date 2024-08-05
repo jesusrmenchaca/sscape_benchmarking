@@ -1,0 +1,14 @@
+{
+  "DBROOT": "test_db",
+  "SUPASS": "tmppass",
+  "WDIR" : "test_wdir",
+  "MIN_RATE" : 5,
+  "MAX_CAMERAS" : 5,
+  "RUN_TIME" : 120,
+  "BASE_YML": "sample_data/docker-compose-example.yml",
+  "MODEL" : "retail",
+  "ITERATE_ROIS": true,
+  "ITERATE_SENSORS": true,
+  "ITERATE_TRIPWIRES": true
+}
+
