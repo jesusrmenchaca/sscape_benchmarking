@@ -14,7 +14,7 @@ from argparse import ArgumentParser
 sample_yml = 'sample_data/docker-compose-example.yml'
 
 
-def benchmark_system_setup(test_config):
+def benchmark_system_setup(test_config, image_version='latest'):
   test_pid = os.getpid()
   config = None
   with open(test_config) as fd:
@@ -50,7 +50,7 @@ def benchmark_system_setup(test_config):
   bench_net = '{}_net'.format(config['TEST_NAME'])
   config['runtime_network'] = bench_net
 
-  bench_yml_data = yml_load(bench_yml_filename)
+  bench_yml_data = yml_load(bench_yml_filename, image_version)
   if 'version' in bench_yml_data:
     del bench_yml_data['version']
   yml_replace_network(bench_yml_data, bench_net)
@@ -70,7 +70,7 @@ def benchmark_system_setup(test_config):
   db_svcs = yml_find_container_by_command(bench_yml_data, 'database')
   for svc in db_svcs:
     bench_yml_data['services'][svc]['command'] = bench_yml_data['services'][svc]['command'].replace('--preloadexample', '')
-    bench_yml_data['services'][svc]['volumes'] = ['./:/workspace']
+    #bench_yml_data['services'][svc]['volumes'] = ['./:/workspace']
 
   web_svcs = yml_find_container_by_command(bench_yml_data, 'webserver')
   for svc in web_svcs:

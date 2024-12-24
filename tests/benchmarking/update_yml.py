@@ -7,6 +7,8 @@ def build_args():
   parser = ArgumentParser()
   parser.add_argument('--file', required=True, help='docker-compose.yml file to process')
   parser.add_argument('--add_camera', help='Add a camera')
+  parser.add_argument('--framerate', help='Camera rate')
+  parser.add_argument('--ovcores', help='OVCores setting for container')
   parser.add_argument('--input', help='Input file to use', action='append')
   parser.add_argument('--intrinsics', help='Intrinsics string to use', action='append')
   parser.add_argument('--mqttid', help='MQTT IDs to use', action='append')
@@ -23,17 +25,19 @@ def yml_add_service( network_name, add_secrets ):
   srv['networks'] = { network_name : None }
   srv['depends_on'] = ['broker', 'ntpserv']
   srv['privileged'] = True
-  srv['secrets'] = ['certs']
+  srv['secrets'] = [] #['certs']
   if len(add_secrets):
     srv['secrets'].extend(add_secrets)
   srv['restart'] = 'always'
 
   return srv
 
-def yml_add_camera(docker_compose, network, add_camera, mqttid, input, intrinsics, model, modelconfig, volumes=None):
-  print("Add cameras IDs",  mqttid, len(mqttid))
+def yml_add_camera(docker_compose, network, add_camera, mqttid, \
+                  input, intrinsics, model, modelconfig, \
+                  ovcores=None, volumes=None, rate=None):
+  #print("Add cameras IDs",  mqttid, len(mqttid))
   if not add_camera in docker_compose['services']:
-    srv = yml_add_service( network, ['percebro.auth'] )
+    srv = yml_add_service( network, ['percebro.auth', {'source':'root-cert','target':'certs/scenescape-ca.pem'}] )
     srv['command'] = ['percebro']
     assert len(mqttid) == len(input)
     if len(intrinsics) != 1:
@@ -48,6 +52,10 @@ def yml_add_camera(docker_compose, network, add_camera, mqttid, input, intrinsic
     srv['command'].extend( [f'--camerachain={model}'] )
     if modelconfig is not None:
       srv['command'].extend( [f'--modelconfig={modelconfig}'] )
+    if ovcores is not None:
+      srv['command'].extend( [f'--ovcores={ovcores}'] )
+    if rate is not None:
+      srv['command'].extend( [f'--framerate={rate}'] )
     srv['command'].extend( ["--ntp=ntpserv","--auth=/run/secrets/percebro.auth","broker.scenescape.intel.com"] )
     if volumes is None:
       srv['volumes'] = ['./models:/opt/intel/openvino/deployment_tools/intel_models', './:/workspace', './videos:/videos' ]
@@ -57,10 +65,14 @@ def yml_add_camera(docker_compose, network, add_camera, mqttid, input, intrinsic
     docker_compose['services'][add_camera] = srv
   return
 
-def yml_load(filename):
+def yml_load(filename, image_version=None):
   docker_compose = {}
   with open(filename) as input_fd:
     docker_compose = yaml.load(input_fd,Loader=yaml.Loader)
+  if image_version:
+    for svc in docker_compose['services']:
+      docker_compose['services'][svc]['image'] += ':' + image_version
+      print("After load Svc", svc, "has image", docker_compose['services'][svc]['image'])
   return docker_compose
 
 def yml_save(docker_compose, filename):
@@ -87,6 +99,7 @@ def yml_replace_network(docker_compose, new_net_name):
   old_network = list(docker_compose['networks'].keys())[0]
   docker_compose['networks'] = { new_net_name: None }
   for svc in docker_compose['services']:
+    print("Svc", svc, "has image", docker_compose['services'][svc]['image'])
     new_net = {new_net_name: None}
     if docker_compose['services'][svc]['networks'][old_network] is not None:
       new_net[new_net_name] = docker_compose['services'][svc]['networks'][old_network]
@@ -113,7 +126,7 @@ def main():
   docker_compose = yml_load(args.file)
 
   if args.add_camera is not None:
-    yml_add_camera(docker_compose, args.network, args.add_camera, args.mqttid, args.input, args.intrinsics, args.model, args.modelconfig)
+    yml_add_camera(docker_compose, args.network, args.add_camera, args.mqttid, args.input, args.intrinsics, args.model, args.modelconfig, ovcores=args.ovcores, rate=args.framerate)
 
   if args.add_scene_recorder is not None and (not args.add_scene_recorder in docker_compose['services']):
     yml_add_recorder_service(docker_compose, args.add_scene_recorder, args.network)

@@ -77,9 +77,9 @@ def main():
       data = rest._get(f'{objtype}s', {})
 
       for item in data['results']:
-        print("Item", item)
+        #print("Item", item)
         uid = item['uid']
-        print(f"Deleting {objtype} id {uid}")
+        #print(f"Deleting {objtype} id {uid}")
         rest._delete(f"{objtype}/{uid}")
         
   target_scene_id = -1
@@ -168,7 +168,7 @@ def main():
 
         getCameraData = rest.getCameras({'name': camera_name})
         if getCameraData['count'] == 1:
-          print("Existing camera", getCameraData)
+          #print("Existing camera", getCameraData)
           rest.updateCamera(camera_data, getCameraData['results'][0]['uid'])
         else:
           newCamera = rest.createCamera(camera_data)

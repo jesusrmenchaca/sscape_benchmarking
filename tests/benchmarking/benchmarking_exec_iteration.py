@@ -47,7 +47,7 @@ def benchmark_iteration_add_cameras_to_scene( network, supass, cameras_cfg, scen
     utils_run_sscape_cmdline( network, sscape_cmd_camera )
   return
 
-def benchmark_iteration_setup_containers( docker_compose, sys_cfg, camera_info, network, cameras, input_base, scene_controller_name, scene_recorder_name ):
+def benchmark_iteration_setup_containers( docker_compose, sys_cfg, camera_info, network, cameras, input_base, scene_controller_name, scene_recorder_name, ovcores=None, camera_rate=None ):
   modelconfig = None
   if 'MODELCONFIG' in sys_cfg:
     modelconfig = sys_cfg['MODELCONFIG']
@@ -68,24 +68,31 @@ def benchmark_iteration_setup_containers( docker_compose, sys_cfg, camera_info, 
         intrinsics = f'{{"fx":{fx},"fy":{fy},"cx":{cx},"cy":{cy}}}'
         yml_add_camera(docker_compose, network, camera_svc, [camera_id], \
                        [camera_input], [intrinsics], sys_cfg['MODEL'], \
-                       modelconfig, volumes)
+                       modelconfig, ovcores=ovcores, volumes=volumes, rate=camera_rate)
         found = True
         break
     if not found:
       print("Camera", cam, "does not exist!")
 
   #add scene
-  scene_controller = yml_add_service( network, ['django', 'controller.auth'] )
-  scene_controller['volumes'] = ['./${DBROOT}/media:/home/scenescape/SceneScape/media']
+  scene_controller = yml_add_service( network, ['django',
+                                                'controller.auth',
+                                                {'source':'root-cert', 'target':'certs/scenescape-ca.pem'},
+                                                {'source':'vdms-client-key', 'target':'certs/scenescape-vdms-c.key'},
+                                                {'source':'vdms-client-cert', 'target':'certs/scenescape-vdms-c.crt'}])
+  #scene_controller = yml_add_service( network, ['django', 'controller.auth'] )
+  scene_controller['volumes'] = ['./${DBROOT}/media:/home/scenescape/SceneScape/media', './:/workspace']
+  #scene_controller['command'] = 'controller --broker broker.scenescape.intel.com --ntp ntpserv --regulaterate 0.1'
   scene_controller['command'] = 'controller --broker broker.scenescape.intel.com --ntp ntpserv'
   scene_controller['environment'] = [ 'DBROOT' ]
   scene_controller['tty'] = True
   docker_compose['services'][scene_controller_name] = scene_controller
 
   #add scene_recorder
-  scene_recorder = yml_add_service( network, ['django', 'percebro.auth'] )
+  scene_recorder = yml_add_service( network, [] )
   scene_recorder['volumes'] = ['./:/workspace']
-  scene_recorder['command'] = 'bash -c "PYTHONPATH=/workspace tests/perf_tests/scene_perf/scene_mqtt_recorder.py"'
+  scene_recorder['environment'] = ['SUPASS']
+  scene_recorder['command'] = 'bash -c "SUPASS=${SUPASS} PYTHONPATH=/workspace tests/perf_tests/scene_perf/scene_mqtt_recorder.py"'
   scene_recorder['tty'] = True
   docker_compose['services'][scene_recorder_name] = scene_recorder
 
@@ -95,9 +102,22 @@ def benchmark_iteration_docker_update(bench_yml_filename, supass, config):
   config['DOCKER_OPTS'] = '--project-directory {} --file {} --progress quiet'.format(os.getcwd(), bench_yml_filename)
   return utils_update_docker( supass, '{}/{}'.format(config['WDIR'],config['DBROOT']), config['DOCKER_OPTS'] )
 
-def benchmark_iteration_log( scene_controller_container_name, scene_recorder_container_name, label, iteration ):
-  utils_log_container( scene_controller_container_name, f'scene_controller_log_{label}_{iteration}.txt' )
-  utils_log_container( scene_recorder_container_name, f'scene_recorder_log_{label}_{iteration}.txt' )
+def benchmark_iteration_log( scene_controller_container_name, scene_recorder_container_name, label, perf_data=None ):
+  utils_log_container( scene_controller_container_name, f'scene_controller_log_{label}.txt' )
+  utils_log_container( scene_recorder_container_name, f'scene_recorder_log_{label}.txt' )
+  if perf_data:
+    perf_fname = f'perf_log_{label}.txt'
+    with open(perf_fname, 'w') as fd:
+      for data in perf_data:
+        if isinstance(data,dict):
+          json.dump(data, fd)
+        else:
+          fd.write( data )
+        fd.write( '\n' )
+
+  command = f'mv scene_controller_prof_2.0.prof profiler_{label}.prof'
+  utils_run_command( command.split(' ') )
+
   return
 
 def benchmark_iteration_stop(bench_yml_data, sys_cfg, scene_controller_name, scene_recorder_name, cameras):
@@ -108,3 +128,22 @@ def benchmark_iteration_stop(bench_yml_data, sys_cfg, scene_controller_name, sce
     camera_svc = f'{cam}-video'
     yml_remove_service(bench_yml_data, camera_svc)
   return
+
+def benchmark_iteration_measure_cpu(services):
+  command = 'docker stats --no-stream'
+  stdout, stderr, res = utils_run_command_with_stdout(command.split(' '))
+  stdout = stdout.decode('utf-8').splitlines()
+  results = {}
+  for svc in services:
+    results[svc] = {}
+  if res == 0:
+    for line in stdout:
+      line_cols = line.split()
+      if line_cols[1] in services:
+        perf_data = { 'CPU':line_cols[2], 'MEM':line_cols[3] }
+        results[ line_cols[1] ] = perf_data
+        #print( "perf_data for ", line_cols[1], "is", perf_data )
+  else:
+    print("Docker stats command failed")
+    print(stderr)
+  return results

@@ -15,8 +15,15 @@ def utils_check_config(cfg, attribute):
     return False
   return True
 
+def utils_run_command_with_stdout(cmd):
+  process = Popen(cmd, stdout=PIPE, stderr=PIPE)
+  stdout, stderr = process.communicate()
+  process.wait()
+  return [stdout, stderr, process.returncode]
+
 def utils_run_command(cmd):
-  process = Popen(cmd)
+  process = Popen(cmd, stdout=PIPE)
+  a = process.communicate()
   process.wait()
   #print(process.stdout)
   return process.returncode == 0
